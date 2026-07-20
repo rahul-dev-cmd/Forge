@@ -12,9 +12,9 @@
 
 # Document History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0.0 | July 2026 | Forge Team | Initial AI System documentation |
+| Version | Date      | Author     | Changes                         |
+| ------- | --------- | ---------- | ------------------------------- |
+| 1.0.0   | July 2026 | Forge Team | Initial AI System documentation |
 
 ---
 
@@ -786,15 +786,15 @@ Future
 
 Different file types require different parsers.
 
-| File Type | Parser |
-|------------|----------|
+| File Type  | Parser                                |
+| ---------- | ------------------------------------- |
 | TypeScript | Tree-sitter / TypeScript Compiler API |
-| JavaScript | Babel Parser |
-| Python | ast module |
-| JSON | Native Parser |
-| Markdown | Markdown AST |
-| HTML | HTML Parser |
-| CSS | PostCSS |
+| JavaScript | Babel Parser                          |
+| Python     | ast module                            |
+| JSON       | Native Parser                         |
+| Markdown   | Markdown AST                          |
+| HTML       | HTML Parser                           |
+| CSS        | PostCSS                               |
 
 ---
 
@@ -1194,11 +1194,11 @@ Combine
 
 Semantic Search
 
-+
+-
 
 Keyword Search
 
-+
+-
 
 File Context
 
@@ -2747,19 +2747,19 @@ Humans approve.
 
 ## Permission Matrix
 
-| Action | Permission |
-|----------|------------|
-| Read Repository | ✔ Automatic |
-| Search Repository | ✔ Automatic |
-| Explain Code | ✔ Automatic |
-| Generate Code | ✔ Automatic |
-| Suggest Refactoring | ✔ Automatic |
-| Apply Code Changes | User Approval |
-| Delete Files | User Approval |
-| Commit Changes | User Approval |
-| Push to GitHub | User Approval |
+| Action                    | Permission    |
+| ------------------------- | ------------- |
+| Read Repository           | ✔ Automatic   |
+| Search Repository         | ✔ Automatic   |
+| Explain Code              | ✔ Automatic   |
+| Generate Code             | ✔ Automatic   |
+| Suggest Refactoring       | ✔ Automatic   |
+| Apply Code Changes        | User Approval |
+| Delete Files              | User Approval |
+| Commit Changes            | User Approval |
+| Push to GitHub            | User Approval |
 | Execute Terminal Commands | User Approval |
-| Delete Repository | User Approval |
+| Delete Repository         | User Approval |
 
 ---
 
