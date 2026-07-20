@@ -1,1 +1,1 @@
-# Workers package placeholder structure
+"""Background workers package — ARQ + Redis."""

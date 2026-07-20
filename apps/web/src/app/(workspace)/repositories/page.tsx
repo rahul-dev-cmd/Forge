@@ -1,80 +1,268 @@
-import * as React from "react";
-import { Folder, FileCode, GitFork, RefreshCw, AlertCircle } from "lucide-react";
+"use client";
 
-export default function RepositoriesPage() {
-  const mockFiles = [
-    { name: "apps", type: "dir", size: "-", date: "2 hours ago" },
-    { name: "packages", type: "dir", size: "-", date: "2 hours ago" },
-    { name: "docs", type: "dir", size: "-", date: "1 day ago" },
-    { name: "package.json", type: "file", size: "583 B", date: "2 hours ago" },
-    { name: "turbo.json", type: "file", size: "336 B", date: "1 week ago" },
-    { name: "pnpm-workspace.yaml", type: "file", size: "90 B", date: "2 hours ago" },
-  ];
+import * as React from "react";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Github, Plus, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingErrorWrapper } from "@/components/shared/LoadingErrorWrapper";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { RepositoryCard } from "@/components/repositories/RepositoryCard";
+import { RepositoryFilters } from "@/components/repositories/RepositoryFilters";
+import { ImportWizard } from "@/components/repositories/ImportWizard";
+import { listRepositories, syncRepository } from "@/lib/api/repositories";
+import { completeGitHubCallback } from "@/lib/api/github";
+import { useWorkspaceStore } from "@/store/workspaceStore";
+import { listWorkspaces } from "@/lib/api/workspaces";
+
+function RepositoriesPageInner() {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const setActiveWorkspaceId = useWorkspaceStore((s) => s.setActiveWorkspaceId);
+
+  const [query, setQuery] = React.useState("");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  const [syncStatus, setSyncStatus] = React.useState("all");
+  const [sortBy, setSortBy] = React.useState("updated_at");
+  const [order, setOrder] = React.useState<"asc" | "desc">("desc");
+  const [page, setPage] = React.useState(1);
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [syncingId, setSyncingId] = React.useState<string | null>(null);
+  const [banner, setBanner] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const workspacesQuery = useQuery({
+    queryKey: ["workspaces"],
+    queryFn: listWorkspaces,
+  });
+
+  React.useEffect(() => {
+    if (!activeWorkspaceId && workspacesQuery.data?.[0]) {
+      setActiveWorkspaceId(workspacesQuery.data[0].id);
+    }
+  }, [activeWorkspaceId, workspacesQuery.data, setActiveWorkspaceId]);
+
+  const workspaceId = activeWorkspaceId ?? workspacesQuery.data?.[0]?.id ?? "";
+
+  React.useEffect(() => {
+    if (searchParams.get("import") === "1") {
+      setImportOpen(true);
+    }
+    const github = searchParams.get("github");
+    if (github !== "callback") return;
+    const code = searchParams.get("code") ?? undefined;
+    const installationId = searchParams.get("installation_id") ?? undefined;
+    if (!code && !installationId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await completeGitHubCallback({
+          code,
+          installationId,
+          workspaceId: workspaceId || undefined,
+        });
+        if (!cancelled) {
+          setBanner(
+            installationId
+              ? "GitHub App installed successfully."
+              : "GitHub account connected successfully."
+          );
+          setImportOpen(true);
+          queryClient.invalidateQueries({ queryKey: ["github-installations"] });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBanner(err instanceof Error ? err.message : "GitHub connection failed");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, workspaceId, queryClient]);
+
+  const reposQuery = useQuery({
+    queryKey: [
+      "repositories",
+      workspaceId,
+      debouncedQuery,
+      syncStatus,
+      sortBy,
+      order,
+      page,
+    ],
+    queryFn: () =>
+      listRepositories({
+        workspaceId,
+        query: debouncedQuery || undefined,
+        syncStatus: syncStatus === "all" ? undefined : syncStatus,
+        sortBy,
+        order,
+        page,
+        limit: 12,
+      }),
+    enabled: !!workspaceId,
+    refetchInterval: (q) => {
+      const items = q.state.data?.items ?? [];
+      const busy = items.some((r) => r.sync_status === "syncing" || r.sync_status === "queued");
+      return busy ? 3000 : false;
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: (id: string) => syncRepository(id),
+    onMutate: (id) => setSyncingId(id),
+    onSettled: () => {
+      setSyncingId(null);
+      queryClient.invalidateQueries({ queryKey: ["repositories"] });
+    },
+  });
+
+  const total = reposQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / 12));
+
+  let state: "loading" | "loaded" | "error" | "empty" = "loaded";
+  if (!workspaceId || reposQuery.isLoading) state = "loading";
+  else if (reposQuery.isError) state = "error";
+  else if ((reposQuery.data?.items.length ?? 0) === 0) state = "empty";
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl select-none">
+    <div className="flex flex-col gap-6 max-w-5xl select-none pb-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-4">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">forge-monorepo</h1>
-            <span className="bg-primary/10 border border-primary/20 text-primary text-[10px] font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <GitFork className="w-3 h-3" /> main
-            </span>
-          </div>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Github className="w-5 h-5" />
+            Repositories
+          </h1>
           <p className="text-xs text-muted-foreground">
-            Connected to github.com/active-workspace/forge-monorepo
+            Browse connected GitHub repositories, sync metadata, and prepare for AI indexing.
           </p>
         </div>
-        <button
-          disabled
-          className="h-9 px-3 border border-border bg-surface text-xs font-semibold rounded-md flex items-center gap-1.5 cursor-not-allowed text-muted-foreground"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Sync Repo</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={() => reposQuery.refetch()}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </Button>
+          <Button size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            Import
+          </Button>
+        </div>
       </div>
 
-      {/* Directory Browser mockup */}
-      <div className="border border-border rounded-lg bg-surface flex flex-col shadow-3xs overflow-hidden">
-        {/* Header bar */}
-        <div className="bg-muted/20 px-4 py-2.5 border-b border-border grid grid-cols-12 text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-          <div className="col-span-6">Name</div>
-          <div className="col-span-3 text-right">Size</div>
-          <div className="col-span-3 text-right">Last Modified</div>
+      {banner ? (
+        <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
+          {banner}
         </div>
+      ) : null}
 
-        {/* File items list */}
-        <div className="flex flex-col divide-y divide-border">
-          {mockFiles.map((file, idx) => (
-            <div
-              key={idx}
-              className="px-4 py-3 grid grid-cols-12 text-xs items-center hover:bg-muted/30 transition-all cursor-pointer"
+      <RepositoryFilters
+        query={query}
+        syncStatus={syncStatus}
+        sortBy={sortBy}
+        order={order}
+        onQueryChange={(v) => {
+          setQuery(v);
+          setPage(1);
+        }}
+        onSyncStatusChange={(v) => {
+          setSyncStatus(v);
+          setPage(1);
+        }}
+        onSortByChange={setSortBy}
+        onOrderChange={setOrder}
+      />
+
+      <LoadingErrorWrapper
+        state={state === "empty" ? "loaded" : state}
+        onRetry={() => reposQuery.refetch()}
+        loadingSkeleton={
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-36 w-full rounded-lg" />
+            ))}
+          </div>
+        }
+      >
+        {state === "empty" ? (
+          <EmptyState
+            title="Connect your first repository"
+            description="Install the Forge GitHub App, then import repositories. Forge syncs metadata only — no cloning."
+            icon={Github}
+            actionText="Import from GitHub"
+            onActionClick={() => setImportOpen(true)}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(reposQuery.data?.items ?? []).map((repo) => (
+              <RepositoryCard
+                key={repo.id}
+                repository={repo}
+                syncing={syncingId === repo.id}
+                onSync={(repoId) => syncMutation.mutate(repoId)}
+              />
+            ))}
+          </div>
+        )}
+      </LoadingErrorWrapper>
+
+      {totalPages > 1 && state === "loaded" ? (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Page {page} of {totalPages} · {total} repositories
+          </span>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              <div className="col-span-6 flex items-center gap-2.5 font-medium text-foreground">
-                {file.type === "dir" ? (
-                  <Folder className="w-4.5 h-4.5 text-primary/70" />
-                ) : (
-                  <FileCode className="w-4.5 h-4.5 text-muted-foreground/75" />
-                )}
-                <span>{file.name}</span>
-              </div>
-              <div className="col-span-3 text-right text-muted-foreground font-mono">{file.size}</div>
-              <div className="col-span-3 text-right text-muted-foreground">{file.date}</div>
-            </div>
-          ))}
+              Previous
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      {/* Info notice about monaco editor and logic placeholders */}
-      <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-foreground">Monaco Editor Out of Scope</span>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Code editing and workspace file sync capabilities will be configured in subsequent milestones.
-          </p>
-        </div>
-      </div>
+      {workspaceId ? (
+        <ImportWizard open={importOpen} onOpenChange={setImportOpen} workspaceId={workspaceId} />
+      ) : null}
     </div>
+  );
+}
+
+export default function RepositoriesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-5xl space-y-3 p-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-36 w-full" />
+        </div>
+      }
+    >
+      <RepositoriesPageInner />
+    </Suspense>
   );
 }

@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: forge-postgres-prod
+    environment:
+      POSTGRES_DB: forge_db
+      POSTGRES_USER: forge_user
+      POSTGRES_PASSWORD: forge_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forge_user -d forge_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: forge-redis-prod
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: forge-qdrant-prod
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: ../../deploy/docker/Dockerfile.api.prod
+    container_name: forge-api-prod
+    environment:
+      DATABASE_URL: postgresql+asyncpg://forge_user:forge_secure_password@postgres:5432/forge_db
+      REDIS_HOST: redis
+      QDRANT_HOST: qdrant
+      VECTOR_DB_PROVIDER: qdrant
+      EMBEDDING_PROVIDER: local
+      LLM_PROVIDER: local
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ../../apps/api
+      dockerfile: ../../deploy/docker/Dockerfile.api.prod
+    container_name: forge-worker-prod
+    command: ["arq", "app.workers.settings.WorkerSettings"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://forge_user:forge_secure_password@postgres:5432/forge_db
+      REDIS_HOST: redis
+      QDRANT_HOST: qdrant
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:

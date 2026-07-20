@@ -43,9 +43,69 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CLERK_SECRET_KEY=sk_test_placeholder_secret_key_value
       - CLERK_JWKS_URL=https://api.clerk.com/v1/jwks
+      - CREDENTIALS_ENCRYPTION_KEY=forge-dev-encryption-key-change-me
+      - GITHUB_APP_WEBHOOK_SECRET=forge-dev-webhook-secret
+      - FRONTEND_URL=http://localhost:3000
+      - API_PUBLIC_URL=http://localhost:8000
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_APP_CLIENT_ID=${GITHUB_APP_CLIENT_ID:-}
+      - GITHUB_APP_CLIENT_SECRET=${GITHUB_APP_CLIENT_SECRET:-}
+      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY:-}
+      - GITHUB_APP_SLUG=${GITHUB_APP_SLUG:-forge}
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: forge-worker
+    command: ["arq", "app.workers.settings.WorkerSettings"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/forge
+      - REDIS_URL=redis://redis:6379/0
+      - CREDENTIALS_ENCRYPTION_KEY=forge-dev-encryption-key-change-me
+      - GITHUB_APP_WEBHOOK_SECRET=forge-dev-webhook-secret
+      - GITHUB_APP_ID=${GITHUB_APP_ID:-}
+      - GITHUB_APP_CLIENT_ID=${GITHUB_APP_CLIENT_ID:-}
+      - GITHUB_APP_CLIENT_SECRET=${GITHUB_APP_CLIENT_SECRET:-}
+      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY:-}
+      - GITHUB_APP_SLUG=${GITHUB_APP_SLUG:-forge}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Placeholder workers for future indexing / AI (Milestone 7+)
+  worker-index:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: forge-worker-index
+    profiles: ["ai-prep"]
+    command: ["arq", "app.workers.settings.IndexWorkerSettings"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/forge
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker-ai:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: forge-worker-ai
+    profiles: ["ai-prep"]
+    command: ["arq", "app.workers.settings.AIWorkerSettings"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/forge
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
       redis:
         condition: service_healthy
 

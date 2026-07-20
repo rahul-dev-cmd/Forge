@@ -71,13 +71,36 @@ export interface OrganizationInvitation {
 export interface Repository {
   id: string;
   projectId: string;
+  workspaceId?: string;
   name: string;
+  fullName?: string;
+  owner?: string;
   gitUrl: string;
+  htmlUrl?: string;
   isIndexed: boolean;
+  indexingReady?: boolean;
   provider?: "github" | "gitlab" | "bitbucket" | "azure_devops" | "local";
   visibility?: "public" | "private" | "internal";
   connectionStatus?: string;
+  syncStatus?: "idle" | "queued" | "syncing" | "synced" | "failed" | "disconnected";
+  installationId?: string;
+  providerRepositoryId?: string;
+  defaultBranch?: string;
+  starsCount?: number;
+  forksCount?: number;
+  watchersCount?: number;
+  primaryLanguage?: string;
+  license?: string;
 }
+
+export interface GitHubInstallation {
+  id: string;
+  installationId: string;
+  accountLogin: string;
+  accountType: string;
+  status: string;
+}
+
 
 export interface ActivityEvent {
   id: string;

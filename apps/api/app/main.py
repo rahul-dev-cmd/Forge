@@ -5,6 +5,8 @@ from app.api.v1.router import api_router
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security import SecurityHeadersMiddleware
+from app.api.v1 import health_probes
 
 # Customized OpenAPI Forge branding documentation
 app = FastAPI(
@@ -19,13 +21,16 @@ app = FastAPI(
 # 1. Inject unique request IDs into request scope (must execute first)
 app.add_middleware(RequestIdMiddleware)
 
-# 2. Structured JSON uvicorn requests/errors logging
+# 2. Security Headers (CSP, HSTS, X-Frame-Options)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 3. Structured JSON uvicorn requests/errors logging
 app.add_middleware(LoggingMiddleware)
 
-# 3. sliding window rate limiter
+# 4. sliding window rate limiter
 app.add_middleware(RateLimitMiddleware)
 
-# 4. restricted CORS parameters
+# 5. restricted CORS parameters
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -34,10 +39,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount API endpoints
+# Mount API endpoints and health probes
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(health_probes.router)
+
+from app.core import telemetry
+app.include_router(telemetry.router)
+
 
 @app.get("/")
 def root_redirect():
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/docs")
+

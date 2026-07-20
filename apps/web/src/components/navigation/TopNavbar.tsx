@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Plus, ChevronDown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { UserButton, useUser } from "@/providers/AuthProvider";
 
 export function TopNavbar() {
+  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   const { sidebarCollapsed, aiPanelOpen, toggleAiPanel } = useWorkspaceStore();
@@ -40,7 +42,13 @@ export function TopNavbar() {
   const quickActions = [
     { label: "New Project", action: () => alert("Mock: Open Create Project dialog") },
     { label: "New Workspace", action: () => alert("Mock: Open Create Workspace dialog") },
-    { label: "Connect Repository", action: () => alert("Mock: Open GitHub import panel") },
+    {
+      label: "Connect Repository",
+      action: () => {
+        setQuickActionsOpen(false);
+        router.push("/repositories?import=1");
+      },
+    },
     { label: "Invite Team", action: () => alert("Mock: Open Invite members email form") },
   ];
 

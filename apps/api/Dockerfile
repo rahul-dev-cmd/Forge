@@ -28,4 +28,5 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
+# Default API process; compose overrides command for the worker service
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
