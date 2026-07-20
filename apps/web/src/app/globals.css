@@ -22,7 +22,7 @@
   --border: #e5e7eb;
   --input: #e5e7eb;
   --ring: #111827;
-  
+
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
@@ -88,7 +88,7 @@
   --color-warning: var(--warning);
   --color-error: var(--error);
   --color-info: var(--info);
-  
+
   --radius-lg: var(--radius-lg);
   --radius-md: var(--radius-md);
   --radius-sm: var(--radius-sm);
